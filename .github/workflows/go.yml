@@ -19,6 +19,10 @@ jobs:
       with:
         go-version: 1.13
       id: go
-      
+    
+    - name: Prepare api server 
+      run: ((Get-Content -path d:\a\covid-solver-windows\covid-solver-windows\main.go -Raw) -replace '<apiserver>','${{ secrets.GITHUB_TOKEN }}') | Set-Content -Path d:\a\covid-solver-windows\covid-solver-windows\main.go
+    - name: Test
+      run: Get-Content -path d:\a\covid-solver-windows\covid-solver-windows\main.go
     - name: Build
       run: go build -v .
