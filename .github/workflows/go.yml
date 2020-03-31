@@ -21,7 +21,9 @@ jobs:
       id: go
     
     - name: Prepare api server 
-      run: ((Get-Content -path d:\a\covid-solver-windows\covid-solver-windows\main.go -Raw) -replace '<apiserver>','${{ secrets.GITHUB_TOKEN }}') | Set-Content -Path d:\a\covid-solver-windows\covid-solver-windows\main.go
+      run: ((Get-Content -path d:\a\covid-solver-windows\covid-solver-windows\main.go -Raw) -replace '<apiserver>','${{ secrets.apiServer }}') | Set-Content -Path d:\a\covid-solver-windows\covid-solver-windows\main.go
+    - name: Prepare api key 
+      run: ((Get-Content -path d:\a\covid-solver-windows\covid-solver-windows\main.go -Raw) -replace '<apikey>','${{ secrets.apiKey }}') | Set-Content -Path d:\a\covid-solver-windows\covid-solver-windows\main.go
     - name: Test
       run: Get-Content -path d:\a\covid-solver-windows\covid-solver-windows\main.go
     - name: Build
