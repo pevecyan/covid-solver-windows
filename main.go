@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -12,85 +13,76 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
 const (
 	host    = "<apiserver>"
 	apikey  = "<apikey>"
-	version = "1.1"
+	version = "V1.2"
 	debug   = false
 )
 
 func versionCheck() {
+	type versionCheckData struct {
+		TagName string `json:"tag_name"`
+	}
+
 	client := &http.Client{
 		Timeout: time.Second * 20,
 	}
 
-	response, err := client.Get(fmt.Sprintf("%s/latest-version", host))
+	response, err := client.Get("https://api.github.com/repos/pevecyan/covid-solver-windows/releases/latest")
 	if err != nil {
 		fmt.Println("Error fecthing latest version, using old")
 		return
 	}
 	defer response.Body.Close()
-	newVersion, err := ioutil.ReadAll(response.Body)
+	var versionData versionCheckData
+	decoder := json.NewDecoder(response.Body)
+	err = decoder.Decode(&versionData)
 	if err != nil {
-		fmt.Println("Error fecthing latest version, using old")
+		fmt.Println("Problem fetching latest release version")
 		return
 	}
-	if strings.TrimSpace(string(newVersion)) == version {
-		fmt.Println("Using latest version")
+	if version != versionData.TagName {
+		fmt.Println("----------------------------------------------------------------------")
+		fmt.Println("------------------------NEW VERSION AVAILABLE-------------------------")
+		fmt.Println("---https://github.com/pevecyan/covid-solver-windows/releases/latest---")
+		fmt.Println("----------------------------------------------------------------------")
 
-		return
+	}
 
-	}
-	fmt.Println("New version detected, downloading it now...")
+}
 
-	response2, err := client.Get(fmt.Sprintf("%s/latest", host))
-	if err != nil {
-		log.Println("Error downloading new version, aborting")
-		return
-	}
-	defer response2.Body.Close()
-	out, err := os.Create("run_flexx.latest.exe")
-	if err != nil {
-		log.Println("Error downloading new version, aborting")
-		return
-	}
-	defer out.Close()
-	_, err = io.Copy(out, response2.Body)
-	if err != nil {
-		log.Println("Error downloading new version, aborting")
-		return
-	}
-	fmt.Println("Update downloaded")
-	cmd := exec.Command("cmd", "/C", "start", "update.bat")
-	err = cmd.Start()
-	if err != nil {
-		log.Println("Error replacing with new version, aborting")
-		return
-	}
-	os.Exit(0)
-	/*procAttr := os.ProcAttr{}
-	devNull, _ := os.Open(os.DevNull)
-	procAttr.Files = []*os.File{os.Stdin, devNull, os.Stderr}
-	p, err := os.StartProcess("update.bat", []string{}, &procAttr)
-	if err != nil {
-		log.Println("Error replacing with new version, aborting")
-		return
-	}
-	p.Release()*/
+func SetupCloseHandler() {
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGABRT)
+	signal.Notify(c, os.Interrupt, syscall.SIGKILL)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(c, os.Interrupt, syscall.SIGQUIT)
+	go func() {
+		<-c
+		fmt.Println("\r- Ctrl+C pressed in Terminal")
+		os.Exit(0)
+	}()
 }
 
 func main() {
-	//reader := bufio.NewReader(os.Stdin)
+	SetupCloseHandler()
+	reader := bufio.NewReader(os.Stdin)
 	fmt.Printf("Welcome to the CITIZEN SCIENCE COVID-19 %s\n", version)
+	versionCheck()
 	fmt.Println("to start press enter")
-	//reader.ReadString('\n')
+	if !debug {
+		reader.ReadString('\n')
+	}
 	//versionCheck()
 	auto := false
 	threads := int64(runtime.NumCPU())
@@ -123,27 +115,35 @@ func main() {
 	*/
 	if threads > 1 {
 		fmt.Printf("Your computer is capable of using %d simultaneous threads, how many of them do you want to utilize?\n", threads)
-		//input, err := reader.ReadString('\n')
-		input := "8"
+		input := "4"
+		var err error
+		if !debug {
+			input, err = reader.ReadString('\n')
+		}
 		input = strings.Replace(input, "\n", "", -1)
 		input = strings.TrimSpace(input)
 		newThreads, err := strconv.ParseInt(input, 10, 64)
 		if err != nil {
 			threads = threads / 2
 			fmt.Printf("Error reading your input, utilizing half of available threads: %d\n", threads)
+		} else {
+			threads = newThreads
 		}
-		threads = newThreads
 	}
 
 	for {
+		versionCheck()
 		os.RemoveAll("output")
 		os.RemoveAll("package")
 		os.RemoveAll("target")
 
 		if !auto {
 			fmt.Println("Do you want to continue automatically when done calculating a package? (y/n)")
-			txt := "n"
-			//txt, _ := reader.ReadString('\n')
+			txt := "y"
+			if !debug {
+				txt, _ = reader.ReadString('\n')
+			}
+
 			if strings.Contains(txt, "y") {
 				auto = true
 			}
@@ -378,7 +378,11 @@ func startDocking(number, threads, target int64) bool {
 
 			// Execute the command
 			if err := c.Run(); err != nil {
-				fmt.Printf("Error docking package (stdout) %d : %s\n", count, err)
+				exitError := err.(*exec.ExitError)
+				fmt.Printf("Error docking package (stdout) %d : %d\n", count, exitError.ExitCode())
+				if exitError.ExitCode() == 3221225786 {
+					os.Exit(0)
+				}
 				done <- false
 				return
 			}
