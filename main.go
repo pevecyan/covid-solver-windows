@@ -25,7 +25,7 @@ import (
 const (
 	host    = "<apiserver>"
 	apikey  = "<apikey>"
-	version = "V1.2"
+	version = "V1.3"
 	debug   = false
 )
 
@@ -133,9 +133,6 @@ func main() {
 
 	for {
 		versionCheck()
-		os.RemoveAll("output")
-		os.RemoveAll("package")
-		os.RemoveAll("target")
 
 		if !auto {
 			fmt.Println("Do you want to continue automatically when done calculating a package? (y/n)")
@@ -148,6 +145,11 @@ func main() {
 				auto = true
 			}
 		}
+
+		os.RemoveAll("output")
+		os.RemoveAll("package")
+		os.RemoveAll("target")
+		os.RemoveAll("log")
 
 		target, ok := getTarget(0)
 		if !ok {
@@ -361,6 +363,7 @@ func newfileUploadRequest(uri string, params map[string]string, paramName, path 
 func startDocking(number, threads, target int64) bool {
 	running := int(threads)
 	done := make(chan bool)
+	os.Mkdir("log", 0777)
 
 	for i := 0; i < int(threads); i++ {
 		go func(count int) {
@@ -368,24 +371,37 @@ func startDocking(number, threads, target int64) bool {
 			fmt.Println(command)
 			c := exec.Command("cmd", "/C", command)
 			var stdBuffer bytes.Buffer
+			file, _ := os.Create(fmt.Sprintf("log/rxdock_out_%d", count))
 			if debug {
 				mw := io.MultiWriter(os.Stdout, &stdBuffer)
 
 				c.Stdout = mw
 				c.Stderr = mw
 
+			} else {
+
+				c.Stdout = file
+				c.Stderr = file
+
 			}
 
 			// Execute the command
 			if err := c.Run(); err != nil {
-				exitError := err.(*exec.ExitError)
-				fmt.Printf("Error docking package (stdout) %d : %d\n", count, exitError.ExitCode())
-				if exitError.ExitCode() == 3221225786 {
-					os.Exit(0)
+				exitError, ok := err.(*exec.ExitError)
+				if ok {
+					fmt.Printf("Error docking package (stdout) %d : %d\n", count, exitError.ExitCode())
+					if exitError.ExitCode() == 3221225786 {
+						os.Exit(0)
+					}
+				} else {
+					fmt.Println(err)
 				}
+				file.Close()
+
 				done <- false
 				return
 			}
+			file.Close()
 			done <- true
 			if debug {
 				log.Println(stdBuffer.String())
