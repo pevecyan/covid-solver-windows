@@ -25,7 +25,7 @@ import (
 const (
 	host    = "<apiserver>"
 	apikey  = "<apikey>"
-	version = "V1.3"
+	version = "V1.4"
 	debug   = false
 )
 
