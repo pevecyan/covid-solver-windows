@@ -25,7 +25,7 @@ import (
 const (
 	host    = "<apiserver>"
 	apikey  = "<apikey>"
-	version = "V1.5"
+	version = "V1.6"
 	debug   = false
 )
 
@@ -406,7 +406,8 @@ func startDocking(number, threads, target int64) bool {
 		go func(count int) {
 			command := fmt.Sprintf("lib\\rxdock\\builddir-win64\\rbdock.exe -r target\\TARGET_%d.prm -p dock.prm -f \\target\\htvs.ptc -i package\\package_%d.sdf -o package\\package_%d_out", target, count, count)
 			fmt.Println(command)
-			c := exec.Command("cmd", "/C", command)
+			splited := strings.Split(command, " ")
+			c := exec.Command(splited[0], splited[1:]...)
 			var stdBuffer bytes.Buffer
 			file, _ := os.Create(fmt.Sprintf("log/rxdock_out_%d", count))
 			if debug {
