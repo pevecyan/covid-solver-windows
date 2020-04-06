@@ -25,7 +25,7 @@ import (
 const (
 	host    = "<apiserver>"
 	apikey  = "<apikey>"
-	version = "V1.4"
+	version = "V1.5"
 	debug   = false
 )
 
@@ -77,9 +77,46 @@ func SetupCloseHandler() {
 func main() {
 	SetupCloseHandler()
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Welcome to the CITIZEN SCIENCE COVID-19 %s\n", version)
+	fmt.Printf("Welcome to the COVID Solver (Windows) %s\n", version)
 	versionCheck()
-	fmt.Println("to start press enter")
+	fmt.Println(`# Copyright Notice and Disclaimer
+# ===============================
+#
+# This software (COVID Solver, win, linux, mac versions) along with its
+# source code is released under the terms of the 
+# GNU General Public License version 3 (GPL v3).
+# A full copy of the GNU General Public License can be found at:
+#  <https://www.gnu.org/licenses/>.
+#
+#
+# Permission to use, copy, modify and distribute
+# versions of this software and its documentation for any purpose and
+# without fee is hereby granted, provided that the above copyright
+# notice appear in all copies and that both the copyright notice and
+# this permission notice appear in supporting documentation, and that
+# the name(s) of the author(s) not be used in advertising or publicity
+# pertaining to distribution of the software without specific, written
+# prior permission.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# THE AUTHORS (Žan Pevec, Gašper Tomšič, Marko Jukić, Črtomir Podlipnik
+# and supporting organisations at the COVID.si project - www.covid.si)
+# DISCLAIM ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+# INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS.  IN
+# NO EVENT SHALL THE AUTHOR(S) BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+# CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+# USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+# OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+# PERFORMANCE OF THIS SOFTWARE.
+# ----------------------------------------------------------------------
+#
+# If You run this software you read the licence in full conscience and agree
+# to the terms described above.`)
+	fmt.Println("To agree and continue press enter")
 	if !debug {
 		reader.ReadString('\n')
 	}
