@@ -25,7 +25,7 @@ import (
 const (
 	host    = "<apiserver>"
 	apikey  = "<apikey>"
-	version = "V1.7"
+	version = "V1.8"
 	debug   = false
 )
 
@@ -121,6 +121,20 @@ func main() {
 		reader.ReadString('\n')
 	}
 	//versionCheck()
+	fmt.Println("-------------------------")
+	fmt.Println("For this software to work you need Microsoft Visual C++ 2010 Redistributable Package installed.")
+	fmt.Println("Have you already installed it? y/n")
+	vcredist, _ := reader.ReadString('\n')
+	vcredist = strings.Replace(vcredist, "\n", "", -1)
+	vcredist = strings.TrimSpace(vcredist)
+	vcredist = strings.ToLower(vcredist)
+	if vcredist != "y" && vcredist != "yes" {
+		cmd := exec.Command("VC_redist.x64.exe")
+		cmd.Run()
+		os.Exit(0)
+
+	}
+
 	auto := false
 	threads := int64(runtime.NumCPU())
 
