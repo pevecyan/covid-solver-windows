@@ -209,7 +209,7 @@ func main() {
 		}
 		if target == -1 {
 			fmt.Println("No new targets, waiting...")
-			<-time.After(time.Minute * 30)
+			<-time.After(time.Minute * 3)
 			continue
 		}
 
@@ -254,7 +254,7 @@ func main() {
 		}
 		if counter == -1 {
 			fmt.Println("No new packages, waiting...")
-			<-time.After(time.Minute * 30)
+			<-time.After(time.Minute * 3)
 			continue
 		}
 		fmt.Printf("Calculating package %d\n", counter)
