@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bufio"
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,6 +21,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/fatih/color"
+	"golang.org/x/sys/windows/registry"
 )
 
 const (
@@ -28,6 +32,33 @@ const (
 	version = "V1.9"
 	debug   = false
 )
+
+var clear map[string]func() //create a map for storing clear funcs
+var ClientGUID, ClientName string
+var ThreadCount int64
+
+func init() {
+	clear = make(map[string]func()) //Initialize it
+	clear["linux"] = func() {
+		cmd := exec.Command("clear") //Linux example, its tested
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	}
+	clear["windows"] = func() {
+		cmd := exec.Command("cmd", "/c", "cls") //Windows example, its tested
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	}
+}
+
+func CallClear() {
+	value, ok := clear[runtime.GOOS] //runtime.GOOS -> linux, windows, darwin etc.
+	if ok {                          //if we defined a clear func for that platform:
+		value() //we execute it
+	} else { //unsupported platform
+		panic("Your platform is unsupported! I can't clear terminal screen :(")
+	}
+}
 
 func versionCheck() {
 	type versionCheckData struct {
@@ -38,7 +69,7 @@ func versionCheck() {
 		Timeout: time.Second * 20,
 	}
 
-	response, err := client.Get("https://api.github.com/repos/pevecyan/covid-solver-windows/releases/latest")
+	response, err := client.Get("https://api.github.com/repos/COVID-si/covid-solver-windows/releases/latest")
 	if err != nil {
 		fmt.Println("Error fecthing latest version, using old")
 		return
@@ -54,9 +85,10 @@ func versionCheck() {
 	if version != versionData.TagName {
 		fmt.Println("----------------------------------------------------------------------")
 		fmt.Println("------------------------NEW VERSION AVAILABLE-------------------------")
-		fmt.Println("---https://github.com/pevecyan/covid-solver-windows/releases/latest---")
+		fmt.Println("---https://github.com/COVID-si/covid-solver-windows/releases/latest---")
 		fmt.Println("----------------------------------------------------------------------")
-
+		color.Red("** PLEASE MAKE SURE YOU ALWAYS USE THE LATEST SOFTWARE. THANK YOU! ***")
+		color.Blue("** Support: https://covid.si **** email: support@covid.si ************")
 	}
 
 }
@@ -74,10 +106,22 @@ func SetupCloseHandler() {
 	}()
 }
 
+func generateGUID() (guid string) {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		log.Fatal(err)
+	}
+	guid = fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+	return guid
+}
+
 func main() {
 	SetupCloseHandler()
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Welcome to the COVID Solver (Windows) %s\n", version)
+	ClientName = "CovidSolverWin-" + version
+	fmt.Printf("Welcome to %s\n", ClientName)
+
 	versionCheck()
 	fmt.Println(`# Copyright Notice and Disclaimer
 # ===============================
@@ -103,8 +147,9 @@ func main() {
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# THE AUTHORS (Žan Pevec, Gašper Tomšič, Marko Jukić, Črtomir Podlipnik
-# and supporting organisations at the COVID.si project - www.covid.si)
+# THE AUTHORS (Žan Pevec, Boštjan Laba, Gašper Tomšič, Marko Jukić, 
+# Črtomir Podlipnik and supporting organisations at the COVID.si 
+# project - www.covid.si)
 # DISCLAIM ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
 # INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS.  IN
 # NO EVENT SHALL THE AUTHOR(S) BE LIABLE FOR ANY SPECIAL, INDIRECT OR
@@ -116,14 +161,39 @@ func main() {
 #
 # If You run this software you read the licence in full conscience and agree
 # to the terms described above.`)
+	fmt.Println("")
 	fmt.Println("To agree and continue press enter")
 	if !debug {
 		reader.ReadString('\n')
 	}
+	CallClear()
+	// Check if GUID/UUID exists in the registry and read it out. If not, generate it and write it into registry
+	k, err := registry.OpenKey(registry.CURRENT_USER, `Software\CovidSolverWin`, registry.QUERY_VALUE|registry.SET_VALUE)
+	if err != nil {
+		//log.Fatal(err)
+		k, _, err = registry.CreateKey(registry.CURRENT_USER, `Software\CovidSolverWin`, registry.QUERY_VALUE|registry.SET_VALUE)
+	}
+	ClientGUID, _, err = k.GetStringValue("MachineID")
+	if err != nil {
+		//log.Fatal(err)
+		ClientGUID = generateGUID()
+		k.SetStringValue("MachineID", ClientGUID)
+	}
+	err = k.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("*************************************************************************")
+	fmt.Print("* Your client ID is: ")
+	color.Yellow(ClientGUID + "\n")
+	fmt.Println("*************************************************************************")
+
 	//versionCheck()
 	fmt.Println("-------------------------")
-	fmt.Println("For this software to work you need Microsoft Visual C++ 2010 Redistributable Package installed.")
-	fmt.Println("Have you already installed it? y/n")
+	fmt.Println("For this software to work you need Microsoft Visual C++ 2010")
+	fmt.Println(" Redistributable Package installed.")
+	fmt.Println("")
+	fmt.Print("Have you already installed it? (y/n) ")
 	vcredist, _ := reader.ReadString('\n')
 	vcredist = strings.Replace(vcredist, "\n", "", -1)
 	vcredist = strings.TrimSpace(vcredist)
@@ -134,7 +204,7 @@ func main() {
 		os.Exit(0)
 
 	}
-
+	fmt.Println("")
 	auto := false
 	threads := int64(runtime.NumCPU())
 
@@ -165,7 +235,8 @@ func main() {
 	os.Remove("tmp_settings")
 	*/
 	if threads > 1 {
-		fmt.Printf("Your computer is capable of using %d simultaneous threads, how many of them do you want to utilize?\n", threads)
+		fmt.Printf("Your computer is capable of using %d simultaneous threads, how many of\n", threads)
+		fmt.Printf("them do you want to utilize? ")
 		input := "4"
 		var err error
 		if !debug {
@@ -181,12 +252,14 @@ func main() {
 			threads = newThreads
 		}
 	}
-
+	fmt.Println("")
+	ThreadCount = threads
 	for {
 		versionCheck()
-
+		fmt.Println("")
 		if !auto {
-			fmt.Println("Do you want to continue automatically when done calculating a package? (y/n)")
+			fmt.Println("Do you want to automatically restart docking when done calculating")
+			fmt.Print("a package? (y/n) ")
 			txt := "y"
 			if !debug {
 				txt, _ = reader.ReadString('\n')
@@ -351,8 +424,9 @@ func splitPackage(counter, threads int64) bool {
 }
 
 func uploadFile(number, count, target int64) bool {
+	ThreadCountStr := strconv.FormatInt(ThreadCount, 10)
 	extraParams := map[string]string{
-		"apikey": apikey,
+		"apikey": apikey, "ClientGUID": ClientGUID, "Client": ClientName, "ThreadCount": ThreadCountStr,
 	}
 	request, err := newfileUploadRequest(fmt.Sprintf("%s/%d/file/%d", host, target, number), extraParams, "data", fmt.Sprintf("output/OUT_T%d_%d.sdf", target, number))
 	if err != nil {
@@ -418,7 +492,7 @@ func startDocking(number, threads, target int64) bool {
 
 	for i := 0; i < int(threads); i++ {
 		go func(count int) {
-			command := fmt.Sprintf("lib\\rxdock\\builddir-win64\\rbdock.exe -r target\\TARGET_%d.prm -p dock.prm -f \\target\\htvs.ptc -i package\\package_%d.sdf -o package\\package_%d_out", target, count, count)
+			command := fmt.Sprintf("lib\\rxdock\\builddir-win64\\rbdock.exe -r target\\TARGET_%d.prm -p dock.prm -f target\\htvs.ptc -i package\\package_%d.sdf -o package\\package_%d_out", target, count, count)
 			fmt.Println(command)
 			splited := strings.Split(command, " ")
 			c := exec.Command(splited[0], splited[1:]...)
@@ -483,8 +557,9 @@ func getPackageFile(number, count, target int64) bool {
 	client := &http.Client{
 		Timeout: 60 * time.Second,
 	}
+	ThreadCountStr := strconv.FormatInt(ThreadCount, 10)
 	extraParams, _ := json.Marshal(map[string]string{
-		"apikey": apikey,
+		"apikey": apikey, "ClientGUID": ClientGUID, "Client": ClientName, "ThreadCount": ThreadCountStr,
 	})
 	response, err := client.Post(fmt.Sprintf("%s/%d/file/down/%d", host, target, number), "application/json", bytes.NewBuffer(extraParams))
 	if err != nil {
@@ -517,8 +592,9 @@ func getCounter(count, target int) (int64, bool) {
 	client := &http.Client{
 		Timeout: 60 * time.Second,
 	}
+	ThreadCountStr := strconv.FormatInt(ThreadCount, 10)
 	extraParams, _ := json.Marshal(map[string]string{
-		"apikey": apikey,
+		"apikey": apikey, "ClientGUID": ClientGUID, "Client": ClientName, "ThreadCount": ThreadCountStr,
 	})
 
 	response, err := client.Post(fmt.Sprintf("%s/%d/counter", host, target), "application/json", bytes.NewBuffer(extraParams))
@@ -562,8 +638,9 @@ func downloadPrerequiredFiles(count, target int) bool {
 	client := &http.Client{
 		Timeout: 60 * time.Second,
 	}
+	ThreadCountStr := strconv.FormatInt(ThreadCount, 10)
 	extraParams, _ := json.Marshal(map[string]string{
-		"apikey": apikey,
+		"apikey": apikey, "ClientGUID": ClientGUID, "Client": ClientName, "ThreadCount": ThreadCountStr,
 	})
 
 	response, err := client.Post(fmt.Sprintf("%s/%d/file/target/archive", host, target), "application/json", bytes.NewBuffer(extraParams))
@@ -596,8 +673,9 @@ func getTarget(count int) (int64, bool) {
 	client := &http.Client{
 		Timeout: 60 * time.Second,
 	}
+	ThreadCountStr := strconv.FormatInt(ThreadCount, 10)
 	extraParams, _ := json.Marshal(map[string]string{
-		"apikey": apikey,
+		"apikey": apikey, "ClientGUID": ClientGUID, "Client": ClientName, "ThreadCount": ThreadCountStr,
 	})
 
 	response, err := client.Post(fmt.Sprintf("%s/target", host), "application/json", bytes.NewBuffer(extraParams))
